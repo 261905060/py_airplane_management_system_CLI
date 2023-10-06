@@ -20,7 +20,6 @@
 # Users (directory)
 # Flights (directory)
 # UserSeats (directory)
-import os
 
 import os
 
@@ -31,40 +30,123 @@ def usrMenu():
         print("\t 1.Book a ticket")
         print("\t 2.Cancel a booking")
         print("\t 3.Show flights")
+        print("\t 4.Enter to exit")
 
         choice = input("Please enter your choice: ")
 
         if choice == "1":
-            bookingTicket()
+            bookFlight(1)
         elif choice == "2":
-            print("You selected Option 2")
+            bookFlight(0)
         elif choice == "3":
-            print("You selected Option 3")
+            loadFlight()
         exit_choice = input("Enter 'exit' to quit or press Enter to continue: ")
         if exit_choice.lower() == 'exit':
             break
 
 
-def bookingTicket():
-    while True:
-        print(f"Welcome user!")
-        print("\t 1.Book a ticket")
-        print("\t 2.Cancel a booking")
-        print("\t 3.Show flights")
-        print("\t 4.<= Go Back")
+def bookFlight(usrInput):
+    flights = {}
+    flight_directory = os.path.join(os.getcwd(), "Flights")
+    if os.path.exists(flight_directory):
+        flight_files = os.listdir(flight_directory)
+        flight_names = [filename.rstrip('.txt') for filename in flight_files]
 
-        choice = input("Enter the corresponding number: ")
+        # Print available flight names
+        print("Available Flights:")
+        for index, flight_name in enumerate(flight_names, start=1):
+            print(f"{index}. {flight_name}")
 
-        if choice == "1":
-            print("You selected Option 1")
-        elif choice == "2":
-            print("You selected Option 2")
-        elif choice == "3":
-            print("You selected Option 3")
-        elif choice == "4":
-            usrMenu()
+        # Ask the user to select a flight
+        selected_index = int(input("Enter the number of the flight you want to load: ")) - 1
+
+        if 0 <= selected_index < len(flight_files):
+            selected_flight_filename = flight_files[selected_index]
+            with open(os.path.join(flight_directory, selected_flight_filename), "r") as file:
+                lines = file.readlines()
+                flight_name = lines[0].split(":")[1].strip()
+                num_rows = int(lines[1].split(":")[1].strip())
+                num_cols = int(lines[2].split(":")[1].strip())
+                seats = [[bool(int(seat)) for seat in row.split()] for row in lines[3:]]
+                flights[flight_name] = {"num_rows": num_rows, "num_cols": num_cols, "seats": seats}
+                display_flight_seats(seats)  # Assuming you have a function to display seats
+                if (usrInput == 1):
+                    seatConfirmation(os.path.join(flight_directory, selected_flight_filename))
+                elif (usrInput == 0):
+                    cancelSeat(os.path.join(flight_directory, selected_flight_filename))
+                else:
+                    print("Internal Server ERROR!")
         else:
-            print("Please select right option")
+            print("Invalid selection. Please try again.")
+
+        print("Press 1 to go back")
+        print("Press 2 to load another flight")
+
+        usrchoice = input("Please enter your choice: ")
+
+        if usrchoice == "1":
+            usrMenu()
+        elif usrchoice == "2":
+            loadFlight()
+
+
+def seatConfirmation(file_path):
+    row_number = int(input("Enter the row number: "))
+    column_number = int(input("Enter the column number: "))
+    update_flight_data(file_path, row_number, column_number)
+
+
+def cancelSeat(file_path):
+    row_number = int(input("Enter the row number: "))
+    column_number = int(input("Enter the column number: "))
+    reverse_booked_ticket(file_path, row_number, column_number)
+
+
+def reverse_booked_ticket(file_path, row, column):
+    try:
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+
+        total_rows = int(lines[1].split(': ')[1])
+        total_columns = int(lines[2].split(': ')[1])
+
+        if 1 <= row <= total_rows and 1 <= column <= total_columns:
+            row_index = row + 2  # Offset for header lines
+            column_index = column - 1  # Indexing starts from 0
+
+            if lines[row_index][column_index * 2] == '0':
+                lines[row_index] = lines[row_index][:column_index * 2] + '1' + lines[row_index][column_index * 2 + 1:]
+                with open(file_path, 'w') as file:
+                    file.writelines(lines)
+                print(f"Ticket at row {row} and column {column} is now available.")
+            else:
+                print("The seat at this position is not booked.")
+        else:
+            print("Invalid row or column number.")
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+def update_flight_data(file_path, row, column):
+    try:
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+
+        total_rows = int(lines[1].split(': ')[1])
+        total_columns = int(lines[2].split(': ')[1])
+
+        if 1 <= row <= total_rows and 1 <= column <= total_columns:
+            row_index = row + 2  # Offset for header lines
+            column_index = column - 1  # Indexing starts from 0
+            lines[row_index] = lines[row_index][:column_index * 2] + '0' + lines[row_index][column_index * 2 + 1:]
+
+            with open(file_path, 'w') as file:
+                file.writelines(lines)
+            print(f"Seat at row {row} and column {column} is now booked.")
+        else:
+            print("Invalid row or column number.")
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 def adminMenu():
@@ -200,7 +282,7 @@ def display_flight_seats(flight):
     print()
 
     for i, row in enumerate(flight):
-        print("Row " + str(i + 1) + ".", end="   ")
+        print("Row\t   " + str(i + 1) + ".", end="   ")
         for seat in row:
             print("*" if seat else "x", end="   ")
         print()
